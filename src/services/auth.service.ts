@@ -3,6 +3,8 @@ import * as authRepository from '../repositories/auth.repository'
 import { LoginUserData, RefreshTokenData, RegisterUserData } from '../types/auth.types'
 import bcrypt from 'bcrypt'
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt'
+import { publishUserEvent } from '../producers/user.producer'
+import { EVENTS } from '../constants/event.constants'
 
 export const register = async (userData: RegisterUserData) => {
     const existingUser = await authRepository.findByEmail(userData.email)
@@ -12,6 +14,18 @@ export const register = async (userData: RegisterUserData) => {
 
     const hashedPassword = await bcrypt.hash(userData.password, 10)
     const user = await authRepository.createUser({...userData, password: hashedPassword})
+
+    try {
+        await publishUserEvent(EVENTS.USER_CREATED, { 
+            id: user.id, 
+            name: user.name, 
+            email: user.email, 
+            role: user.role, 
+            status: user.status, 
+        });
+    } catch (error) {
+        console.error("Failed to publish USER_CREATED event", error);
+    }
 
     return {
         id: user.id,

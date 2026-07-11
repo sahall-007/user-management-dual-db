@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt'
 import * as userRepository from '../repositories/user.repository'
 import * as adminRepository from '../repositories/admin.repository'
 import { ChangePasswordData } from '../types/auth.types'
+import { publishUserEvent } from '../producers/user.producer'
+import { EVENTS } from '../constants/event.constants'
 
 export const getProfile = async (userId: string) => {
     const user = await adminRepository.findById(userId)
@@ -21,6 +23,18 @@ export const getProfile = async (userId: string) => {
 export const updateProfile = async (userId: string, updateData: {name: string}) => {
     const updatedUser = await userRepository.updateProfile(userId, updateData)
     if(!updatedUser) throw new AppError('User not found', HTTP_STATUS.NOT_FOUND)
+
+    try {
+        await publishUserEvent(EVENTS.USER_UPDATED, { 
+            id: updatedUser.id, 
+            name: updatedUser.name, 
+            email: updatedUser.email, 
+            role: updatedUser.role, 
+            status: updatedUser.status, 
+        });
+    } catch (error) {
+        console.error("Failed to publish USER_UPDATED event", error);
+    }
     
     return {
         id: updatedUser.id,
