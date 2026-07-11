@@ -5,8 +5,26 @@ import bcrypt from 'bcrypt'
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt'
 import { publishUserEvent } from '../producers/user.producer'
 import { EVENTS } from '../constants/event.constants'
+import validator from 'validator'
+
+function validate (data: RegisterUserData | LoginUserData) {
+    const emailValidate = validator.isEmail(data.email)
+    const passwordValidate = validator.matches(data.password, /^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[A-Za-z])[A-Za-z0-9!@#$%^&*]{8,15}$/)
+    
+    if("name" in data){
+        const nameValidate = validator.matches(data.name, /^(?=.{3,12}$)[A-Za-z]+(?:[_][A-Za-z]+)*$/)
+        if(!nameValidate) throw new AppError('Invalid name format, use letters and _ only', 400)
+    }
+    if(!emailValidate) throw new AppError('Invalid email format', 400)
+    if(!passwordValidate) throw new AppError('Invalid passowrd format, must be between 8 to 15 chars and contain letter, number and special char', 400)
+
+    return true
+}
 
 export const register = async (userData: RegisterUserData) => {
+
+    validate(userData)
+
     const existingUser = await authRepository.findByEmail(userData.email)
     if(existingUser){
         throw new AppError('User already exist', 409)
@@ -37,6 +55,9 @@ export const register = async (userData: RegisterUserData) => {
 }
 
 export const login = async (userData: LoginUserData) => {
+
+    validate(userData)
+
     const user = await authRepository.findByEmail(userData.email)
     if(!user) throw new AppError('Invalid credentials', 401)
     
